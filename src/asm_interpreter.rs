@@ -287,7 +287,18 @@ impl Codegen {
                         ]);
                         expr_instruct
                     }
-                    ObjType::Integer => todo!(),
+                    ObjType::Integer => {
+                        expr_instruct.extend(vec![
+                            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rsi)),
+                            AsmInstruction::Mov(
+                                Address::Label("format_i64".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Movb(Address::Immediate(0), Address::Reg(Reg::Al)),
+                            AsmInstruction::Call("printf".to_string()),
+                        ]);
+                        expr_instruct
+                    }
                     ObjType::Float => {
                         expr_instruct.extend(vec![
                             AsmInstruction::Mov(
@@ -336,7 +347,13 @@ impl Codegen {
                         ObjType::String,
                     )
                 }
-                Object::Integer(_) => todo!(),
+                Object::Integer(i) => (
+                    vec![AsmInstruction::Mov(
+                        Address::Immediate(*i),
+                        Address::Reg(Reg::Rax),
+                    )],
+                    ObjType::Integer,
+                ),
                 Object::Float(f) => {
                     let label = self.new_float_label();
                     self.floats.push(AsmInstruction::Label(label.clone()));
