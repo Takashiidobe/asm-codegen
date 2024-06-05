@@ -1,0 +1,13 @@
+---
+source: tests/cli.rs
+info:
+  program: print-neg.my.out
+  args: []
+input_file: tests/input/unary/print-neg.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+-10
+
+----- stderr -----

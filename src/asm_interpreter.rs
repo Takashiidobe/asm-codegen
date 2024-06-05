@@ -1,7 +1,7 @@
 #![allow(unused)]
 use std::{collections::HashMap, fmt};
 
-use crate::token::ObjType;
+use crate::token::{ObjType, TokenType};
 use crate::{
     expr::Expr,
     stmt::Stmt,
@@ -36,6 +36,7 @@ pub enum Reg {
     Al,
     Rip,
     Xmm0,
+    Xmm1,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -84,6 +85,7 @@ impl fmt::Display for Reg {
             Reg::R9 => "%r9",
             Reg::Rip => "%rip",
             Reg::Xmm0 => "%xmm0",
+            Reg::Xmm1 => "%xmm1",
         })
     }
 }
@@ -101,6 +103,7 @@ pub enum AsmInstruction {
     Call(String),
     Lea(Address, Address),
     Mov(Address, Address),
+    Movq(Address, Address),
     Movb(Address, Address),
     Movsd(Address, Address),
     Movzb(Address, Address),
@@ -128,6 +131,7 @@ pub enum AsmInstruction {
     Comment(String),
     Asciz(String),
     Double(f64),
+    Xorpd(Address, Address),
 }
 
 impl fmt::Display for AsmInstruction {
@@ -155,6 +159,7 @@ impl fmt::Display for AsmInstruction {
             Test(left, right) => f.write_fmt(format_args!("  test {}, {}", left, right)),
             Cmp(left, right) => f.write_fmt(format_args!("  cmp {}, {}", left, right)),
             Mov(left, right) => f.write_fmt(format_args!("  mov {}, {}", left, right)),
+            Movq(left, right) => f.write_fmt(format_args!("  movq {}, {}", left, right)),
             Movb(left, right) => f.write_fmt(format_args!("  movb {}, {}", left, right)),
             Movsd(left, right) => f.write_fmt(format_args!("  movsd {}, {}", left, right)),
             Movzb(left, right) => f.write_fmt(format_args!("  movzb {}, {}", left, right)),
@@ -173,6 +178,7 @@ impl fmt::Display for AsmInstruction {
             Comment(comment) => f.write_fmt(format_args!("  # {}", comment)),
             Asciz(bytes) => f.write_fmt(format_args!("  .asciz \"{}\"", bytes)),
             Double(float) => f.write_fmt(format_args!("  .double {}", float)),
+            Xorpd(left, right) => f.write_fmt(format_args!("  xorpd {}, {}", left, right)),
         }
     }
 }
@@ -249,6 +255,8 @@ impl Codegen {
             AsmInstruction::Variable("string".to_string(), Some("\"%s\\n\"".to_string())),
             AsmInstruction::Label(".format_f64".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%f\\n\"".to_string())),
+            AsmInstruction::Label("neg_mask".to_string()),
+            AsmInstruction::Variable("quad".to_string(), Some("0x8000000000000000".to_string())),
         ]
     }
 
@@ -333,7 +341,29 @@ impl Codegen {
             Expr::Assign { name, expr } => todo!(),
             Expr::Var { name } => todo!(),
             Expr::Logical { left, op, right } => todo!(),
-            Expr::Unary { op, expr } => todo!(),
+            Expr::Unary { op, expr } => {
+                if let Token {
+                    r#type: TokenType::Minus,
+                    ..
+                } = op
+                {
+                    let (mut res, r_type) = self.expr(expr);
+                    if r_type == ObjType::Integer {
+                        res.push(AsmInstruction::Neg(Reg::Rax));
+                    } else if r_type == ObjType::Float {
+                        res.push(AsmInstruction::Movq(
+                            Address::LabelOffset("neg_mask".to_string(), Reg::Rip),
+                            Address::Reg(Reg::Xmm1),
+                        ));
+                        res.push(AsmInstruction::Xorpd(
+                            Address::Reg(Reg::Xmm1),
+                            Address::Reg(Reg::Xmm0),
+                        ));
+                    }
+                    return (res, r_type);
+                }
+                panic!("Op: {op} cannot be applied to expr: {expr:?}")
+            }
             Expr::Literal { value } => match value {
                 Object::String(s) => {
                     let label = self.new_str_label();
