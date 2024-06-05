@@ -1,11 +1,11 @@
-use std::borrow::Borrow;
+#![allow(unused)]
 use std::{collections::HashMap, fmt};
 
 use crate::token::ObjType;
 use crate::{
     expr::Expr,
     stmt::Stmt,
-    token::{Object, Token, TokenType},
+    token::{Object, Token},
 };
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -14,11 +14,13 @@ pub struct Codegen {
     instructions: Vec<AsmInstruction>,
     label_count: u64,
     anon_count: u64,
+    float_count: u64,
     stack_offset: i64,
     pub vars: HashMap<String, (OffsetOrLabel, ObjType)>,
     pub functions: HashMap<Token, ObjType>,
     pub labels: HashMap<String, String>,
     strings: Vec<AsmInstruction>,
+    floats: Vec<AsmInstruction>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,13 +36,14 @@ pub enum Reg {
     R9,
     Al,
     Rip,
+    Xmm0,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Address {
     Reg(Reg),
     Label(String),
-    Immediate(f64),
+    Immediate(i64),
     Indirect(Reg),
     IndirectOffset(i64, Reg),
     LabelOffset(String, Reg),
@@ -81,6 +84,7 @@ impl fmt::Display for Reg {
             Reg::R8 => "%r8",
             Reg::R9 => "%r9",
             Reg::Rip => "%rip",
+            Reg::Xmm0 => "%xmm0",
         })
     }
 }
@@ -98,6 +102,8 @@ pub enum AsmInstruction {
     Call(String),
     Lea(Address, Address),
     Mov(Address, Address),
+    Movb(Address, Address),
+    Movsd(Address, Address),
     Movzb(Address, Address),
     Sete(Reg),
     Setne(Reg),
@@ -122,6 +128,7 @@ pub enum AsmInstruction {
     Leave,
     Comment(String),
     Asciz(String),
+    Double(f64),
 }
 
 impl fmt::Display for AsmInstruction {
@@ -149,6 +156,8 @@ impl fmt::Display for AsmInstruction {
             Test(left, right) => f.write_fmt(format_args!("  test {}, {}", left, right)),
             Cmp(left, right) => f.write_fmt(format_args!("  cmp {}, {}", left, right)),
             Mov(left, right) => f.write_fmt(format_args!("  mov {}, {}", left, right)),
+            Movb(left, right) => f.write_fmt(format_args!("  movb {}, {}", left, right)),
+            Movsd(left, right) => f.write_fmt(format_args!("  movsd {}, {}", left, right)),
             Movzb(left, right) => f.write_fmt(format_args!("  movzb {}, {}", left, right)),
             Cqo => f.write_fmt(format_args!("  cqo")),
             IMul(left, right) => f.write_fmt(format_args!("  imul {}, {}", left, right)),
@@ -164,6 +173,7 @@ impl fmt::Display for AsmInstruction {
             Leave => f.write_fmt(format_args!("  leave")),
             Comment(comment) => f.write_fmt(format_args!("  # {}", comment)),
             Asciz(bytes) => f.write_fmt(format_args!("  .asciz \"{}\"", bytes)),
+            Double(float) => f.write_fmt(format_args!("  .double {}", float)),
         }
     }
 }
@@ -201,6 +211,10 @@ impl Codegen {
             program.push(AsmInstruction::Variable("data".to_string(), None));
             program.extend(self.strings.clone());
         }
+        if !self.floats.is_empty() {
+            program.push(AsmInstruction::Variable("data".to_string(), None));
+            program.extend(self.floats.clone());
+        }
         program
     }
 
@@ -218,7 +232,7 @@ impl Codegen {
             AsmInstruction::Push(Reg::Rbp),
             AsmInstruction::Mov(Address::Reg(Reg::Rsp), Address::Reg(Reg::Rbp)),
             AsmInstruction::Sub(
-                Address::Immediate(self.align_to(size * 8, 16) as f64),
+                Address::Immediate(self.align_to(size * 8, 16) as i64),
                 Reg::Rsp,
             ),
         ]
@@ -226,14 +240,16 @@ impl Codegen {
 
     fn epilogue(&mut self) -> Vec<AsmInstruction> {
         vec![
-            AsmInstruction::Leave,
             AsmInstruction::Xor(Reg::Rax, Reg::Rax),
+            AsmInstruction::Leave,
             AsmInstruction::Ret,
             AsmInstruction::Variable("section".to_string(), Some(".rodata".to_string())),
-            AsmInstruction::Label(".format".to_string()),
+            AsmInstruction::Label(".format_i64".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%d\\n\"".to_string())),
-            AsmInstruction::Label(".format_s".to_string()),
+            AsmInstruction::Label(".format_str".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%s\\n\"".to_string())),
+            AsmInstruction::Label(".format_f64".to_string()),
+            AsmInstruction::Variable("string".to_string(), Some("\"%f\\n\"".to_string())),
         ]
     }
 
@@ -253,12 +269,81 @@ impl Codegen {
 
     // make it so every expr returns a vector of results
     fn stmt(&mut self, stmt: &Stmt) -> Vec<AsmInstruction> {
-        todo!()
+        match stmt {
+            Stmt::Expr { expr } => self.expr(expr).0,
+            Stmt::Var { name, initializer } => todo!(),
+            Stmt::Block { stmts } => todo!(),
+            Stmt::Print { expr } => {
+                let (mut expr_instruct, obj_type) = self.expr(expr);
+                match obj_type {
+                    ObjType::String => todo!(),
+                    ObjType::Integer => todo!(),
+                    ObjType::Float => {
+                        expr_instruct.extend(vec![
+                            AsmInstruction::Mov(
+                                Address::Label("format_f64".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Movb(Address::Immediate(1), Address::Reg(Reg::Al)),
+                            AsmInstruction::Call("printf".to_string()),
+                        ]);
+                        expr_instruct
+                    }
+                    ObjType::Bool => todo!(),
+                    ObjType::Nil => todo!(),
+                }
+            }
+            Stmt::Function {
+                name,
+                params,
+                body,
+                return_type,
+            } => todo!(),
+            Stmt::Return { keyword, value } => todo!(),
+            Stmt::If { cond, then, r#else } => todo!(),
+            Stmt::While { cond, body } => todo!(),
+        }
     }
 
     // every expr should return a Vec<AsmInstruction>
     fn expr(&mut self, expr: &Expr) -> (Vec<AsmInstruction>, ObjType) {
-        todo!()
+        match expr {
+            Expr::Binary { left, op, right } => todo!(),
+            Expr::Assign { name, expr } => todo!(),
+            Expr::Var { name } => todo!(),
+            Expr::Logical { left, op, right } => todo!(),
+            Expr::Unary { op, expr } => todo!(),
+            Expr::Literal { value } => match value {
+                Object::String(_) => todo!(),
+                Object::Integer(_) => todo!(),
+                Object::Float(f) => {
+                    let label = self.get_float_label();
+                    self.floats.push(AsmInstruction::Label(label.clone()));
+                    self.floats.push(AsmInstruction::Double(*f));
+                    (
+                        vec![AsmInstruction::Movsd(
+                            Address::LabelOffset(label, Reg::Rip),
+                            Address::Reg(Reg::Xmm0),
+                        )],
+                        ObjType::Float,
+                    )
+                }
+                Object::Identifier(_) => todo!(),
+                Object::Bool(_) => todo!(),
+                Object::Nil => todo!(),
+            },
+            Expr::Grouping { expr } => self.expr(expr),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => todo!(),
+        }
+    }
+
+    fn get_float_label(&mut self) -> String {
+        self.float_count += 1;
+        format!(".L.float.{}", self.float_count - 1)
     }
 
     fn get_anon_count(&mut self) -> u64 {

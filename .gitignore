@@ -1,6 +1,7 @@
 /target
 history.txt
 *.s
+*.S
 *.out
 *.c
 *.o

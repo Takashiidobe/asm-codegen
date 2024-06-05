@@ -1,0 +1,8 @@
+---
+source: src/parser.rs
+expression: parser.parse().unwrap()
+---
+- Expr:
+    expr:
+      Literal:
+        value: Nil

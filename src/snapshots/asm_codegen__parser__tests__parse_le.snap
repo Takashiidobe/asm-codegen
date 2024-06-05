@@ -1,0 +1,20 @@
+---
+source: src/parser.rs
+expression: parser.parse().unwrap()
+---
+- Expr:
+    expr:
+      Binary:
+        left:
+          Literal:
+            value:
+              Integer: 1
+        op:
+          type: LessEqual
+          lexeme: "<="
+          literal: ~
+          line: 1
+        right:
+          Literal:
+            value:
+              Integer: 2

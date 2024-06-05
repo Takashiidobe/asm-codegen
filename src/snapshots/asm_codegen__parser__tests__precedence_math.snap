@@ -1,0 +1,31 @@
+---
+source: src/parser.rs
+expression: parser.parse().unwrap()
+---
+- Expr:
+    expr:
+      Binary:
+        left:
+          Literal:
+            value:
+              Integer: 15
+        op:
+          type: Minus
+          lexeme: "-"
+          literal: ~
+          line: 1
+        right:
+          Binary:
+            left:
+              Literal:
+                value:
+                  Integer: 3
+            op:
+              type: Star
+              lexeme: "*"
+              literal: ~
+              line: 1
+            right:
+              Literal:
+                value:
+                  Integer: 4
