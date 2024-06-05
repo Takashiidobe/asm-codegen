@@ -12,9 +12,8 @@ use crate::{
 pub struct Codegen {
     depth: i64,
     instructions: Vec<AsmInstruction>,
-    label_count: u64,
-    anon_count: u64,
     float_count: u64,
+    str_count: u64,
     stack_offset: i64,
     pub vars: HashMap<String, (OffsetOrLabel, ObjType)>,
     pub functions: HashMap<Token, ObjType>,
@@ -276,7 +275,18 @@ impl Codegen {
             Stmt::Print { expr } => {
                 let (mut expr_instruct, obj_type) = self.expr(expr);
                 match obj_type {
-                    ObjType::String => todo!(),
+                    ObjType::String => {
+                        expr_instruct.extend(vec![
+                            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rsi)),
+                            AsmInstruction::Mov(
+                                Address::Label("format_str".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Movb(Address::Immediate(0), Address::Reg(Reg::Al)),
+                            AsmInstruction::Call("printf".to_string()),
+                        ]);
+                        expr_instruct
+                    }
                     ObjType::Integer => todo!(),
                     ObjType::Float => {
                         expr_instruct.extend(vec![
@@ -314,10 +324,21 @@ impl Codegen {
             Expr::Logical { left, op, right } => todo!(),
             Expr::Unary { op, expr } => todo!(),
             Expr::Literal { value } => match value {
-                Object::String(_) => todo!(),
+                Object::String(s) => {
+                    let label = self.new_str_label();
+                    self.strings.push(AsmInstruction::Label(label.clone()));
+                    self.strings.push(AsmInstruction::Asciz(s.to_string()));
+                    (
+                        vec![AsmInstruction::Lea(
+                            Address::LabelOffset(label, Reg::Rip),
+                            Address::Reg(Reg::Rax),
+                        )],
+                        ObjType::String,
+                    )
+                }
                 Object::Integer(_) => todo!(),
                 Object::Float(f) => {
-                    let label = self.get_float_label();
+                    let label = self.new_float_label();
                     self.floats.push(AsmInstruction::Label(label.clone()));
                     self.floats.push(AsmInstruction::Double(*f));
                     (
@@ -341,18 +362,13 @@ impl Codegen {
         }
     }
 
-    fn get_float_label(&mut self) -> String {
+    fn new_float_label(&mut self) -> String {
         self.float_count += 1;
         format!(".L.float.{}", self.float_count - 1)
     }
 
-    fn get_anon_count(&mut self) -> u64 {
-        self.anon_count += 1;
-        self.anon_count - 1
-    }
-
-    fn get_count(&mut self) -> u64 {
-        self.label_count += 1;
-        self.label_count - 1
+    fn new_str_label(&mut self) -> String {
+        self.str_count = 1;
+        format!(".L.str.{}", self.str_count - 1)
     }
 }
