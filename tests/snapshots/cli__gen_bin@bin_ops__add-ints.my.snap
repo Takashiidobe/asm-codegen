@@ -1,0 +1,14 @@
+---
+source: tests/cli.rs
+info:
+  program: add-ints.my.out
+  args: []
+input_file: tests/input/bin_ops/add-ints.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+3
+6
+
+----- stderr -----

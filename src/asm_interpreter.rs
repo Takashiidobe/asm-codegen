@@ -120,6 +120,7 @@ pub enum AsmInstruction {
     IMul(Reg, Reg),
     IDiv(Reg, Reg),
     Add(Reg, Reg),
+    Addsd(Reg, Reg),
     Sub(Address, Reg),
     Neg(Reg),
     Je(String),
@@ -167,6 +168,7 @@ impl fmt::Display for AsmInstruction {
             IMul(left, right) => f.write_fmt(format_args!("  imul {}, {}", left, right)),
             IDiv(left, right) => f.write_fmt(format_args!("  idiv {}, {}", left, right)),
             Add(left, right) => f.write_fmt(format_args!("  add {}, {}", left, right)),
+            Addsd(left, right) => f.write_fmt(format_args!("  addsd {}, {}", left, right)),
             Sub(left, right) => f.write_fmt(format_args!("  sub {}, {}", left, right)),
             Neg(reg) => f.write_fmt(format_args!("  neg {}", reg)),
             Jne(reg) => f.write_fmt(format_args!("  jne {}", reg)),
@@ -337,7 +339,22 @@ impl Codegen {
     // every expr should return a Vec<AsmInstruction>
     fn expr(&mut self, expr: &Expr) -> (Vec<AsmInstruction>, ObjType) {
         match expr {
-            Expr::Binary { left, op, right } => todo!(),
+            Expr::Binary { left, op, right } => match op {
+                Token {
+                    r#type: TokenType::Plus,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    if r_type == ObjType::Integer {
+                        res.push(AsmInstruction::Add(Reg::Rdi, Reg::Rax));
+                    }
+                    if r_type == ObjType::Float {
+                        res.push(AsmInstruction::Addsd(Reg::Xmm1, Reg::Xmm0));
+                    }
+                    (res, r_type)
+                }
+                _ => todo!(),
+            },
             Expr::Assign { name, expr } => todo!(),
             Expr::Var { name } => todo!(),
             Expr::Logical { left, op, right } => todo!(),
@@ -417,5 +434,31 @@ impl Codegen {
     fn new_str_label(&mut self) -> String {
         self.str_count = 1;
         format!(".L.str.{}", self.str_count - 1)
+    }
+
+    fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {
+        let ((mut res, r_type), (left, l_type)) = (self.expr(right), self.expr(left));
+        if l_type != r_type {
+            panic!(
+                "The operands to a binary op must be the same type, got {:?}, {:?}",
+                r_type, l_type
+            );
+        }
+        if l_type == ObjType::Integer {
+            res.push(self.push());
+            res.extend(left);
+            res.push(self.pop(Reg::Rdi));
+        } else if l_type == ObjType::Float {
+            res.push(AsmInstruction::Movsd(
+                Address::Reg(Reg::Xmm0),
+                Address::IndirectOffset(-8, Reg::Rbp),
+            ));
+            res.extend(left);
+            res.push(AsmInstruction::Movsd(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Xmm1),
+            ));
+        }
+        (res, l_type)
     }
 }
