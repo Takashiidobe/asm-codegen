@@ -27,6 +27,7 @@ pub enum Reg {
     Rax,
     Rsp,
     Rbp,
+    Rbx,
     Rsi,
     Rdi,
     Rdx,
@@ -45,6 +46,7 @@ pub enum Address {
     Label(String),
     Immediate(i64),
     Indirect(Reg),
+    IndirectDouble(Reg, Reg),
     IndirectOffset(i64, Reg),
     LabelOffset(String, Reg),
 }
@@ -66,6 +68,7 @@ impl fmt::Display for Address {
                 f.write_fmt(format_args!("{}({})", offset, reg))
             }
             Address::LabelOffset(offset, reg) => f.write_fmt(format_args!("{}({})", offset, reg)),
+            Address::IndirectDouble(r1, r2) => f.write_fmt(format_args!("({},{})", r1, r2)),
         }
     }
 }
@@ -86,6 +89,7 @@ impl fmt::Display for Reg {
             Reg::Rip => "%rip",
             Reg::Xmm0 => "%xmm0",
             Reg::Xmm1 => "%xmm1",
+            Reg::Rbx => "%rbx",
         })
     }
 }
@@ -119,7 +123,7 @@ pub enum AsmInstruction {
     Cmp(Address, Reg),
     IMul(Reg, Reg),
     IDiv(Reg, Reg),
-    Add(Reg, Reg),
+    Add(Address, Reg),
     Addsd(Reg, Reg),
     Sub(Address, Reg),
     Neg(Reg),
@@ -346,7 +350,7 @@ impl Codegen {
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
                     if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::Add(Reg::Rdi, Reg::Rax));
+                        res.push(AsmInstruction::Add(Address::Reg(Reg::Rdi), Reg::Rax));
                     }
                     if r_type == ObjType::Float {
                         res.push(AsmInstruction::Addsd(Reg::Xmm1, Reg::Xmm0));
@@ -432,12 +436,13 @@ impl Codegen {
     }
 
     fn new_str_label(&mut self) -> String {
-        self.str_count = 1;
+        self.str_count += 1;
         format!(".L.str.{}", self.str_count - 1)
     }
 
     fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {
-        let ((mut res, r_type), (left, l_type)) = (self.expr(right), self.expr(left));
+        let ((mut res, r_type), (left, l_type)) = (self.expr(left), self.expr(right));
+        let res_copy = res.clone();
         if l_type != r_type {
             panic!(
                 "The operands to a binary op must be the same type, got {:?}, {:?}",
@@ -457,6 +462,57 @@ impl Codegen {
             res.push(AsmInstruction::Movsd(
                 Address::IndirectOffset(-8, Reg::Rbp),
                 Address::Reg(Reg::Xmm1),
+            ));
+        } else if l_type == ObjType::String {
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rdi),
+            ));
+            res.push(AsmInstruction::Call("strlen".to_string()));
+            res.push(AsmInstruction::Movq(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rbx),
+            ));
+            res.extend(left.clone());
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rdi),
+            ));
+            res.push(AsmInstruction::Call("strlen".to_string()));
+            res.push(AsmInstruction::Add(Address::Reg(Reg::Rbx), Reg::Rax));
+            res.push(AsmInstruction::Add(Address::Immediate(1), Reg::Rax));
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rdi),
+            ));
+            res.push(AsmInstruction::Call("malloc".to_string()));
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::IndirectOffset(-8, Reg::Rbp),
+            ));
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rdi),
+            ));
+            res.extend(res_copy);
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rsi),
+            ));
+            res.push(AsmInstruction::Call("strcpy".to_string()));
+            res.extend(left);
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rsi),
+            ));
+            res.push(AsmInstruction::Call("strcat".to_string()));
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::IndirectOffset(-8, Reg::Rbp),
+            ));
+            res.push(AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::Reg(Reg::Rdi),
             ));
         }
         (res, l_type)
