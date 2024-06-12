@@ -257,8 +257,6 @@ impl Codegen {
             AsmInstruction::Variable("section".to_string(), Some(".rodata".to_string())),
             AsmInstruction::Label(".format_i64".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%d\\n\"".to_string())),
-            AsmInstruction::Label(".format_str".to_string()),
-            AsmInstruction::Variable("string".to_string(), Some("\"%s\\n\"".to_string())),
             AsmInstruction::Label(".format_f64".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%f\\n\"".to_string())),
             AsmInstruction::Label("neg_mask".to_string()),
@@ -291,13 +289,8 @@ impl Codegen {
                 match obj_type {
                     ObjType::String => {
                         expr_instruct.extend(vec![
-                            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rsi)),
-                            AsmInstruction::Mov(
-                                Address::Label("format_str".to_string()),
-                                Address::Reg(Reg::Rdi),
-                            ),
-                            AsmInstruction::Movb(Address::Immediate(0), Address::Reg(Reg::Al)),
-                            AsmInstruction::Call("printf".to_string()),
+                            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rdi)),
+                            AsmInstruction::Call("puts".to_string()),
                         ]);
                         expr_instruct
                     }
@@ -506,14 +499,6 @@ impl Codegen {
                 Address::Reg(Reg::Rsi),
             ));
             res.push(AsmInstruction::Call("strcat".to_string()));
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::IndirectOffset(-8, Reg::Rbp),
-            ));
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rdi),
-            ));
         }
         (res, l_type)
     }
