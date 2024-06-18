@@ -327,7 +327,26 @@ impl Codegen {
                         ]);
                         expr_instruct
                     }
-                    ObjType::Bool => todo!(),
+                    ObjType::Bool => {
+                        let count = self.get_label();
+                        expr_instruct.extend(vec![
+                            AsmInstruction::Cmp(Address::Immediate(0), Reg::Rax),
+                            AsmInstruction::Je(format!(".L.else.{}", count)),
+                            AsmInstruction::Mov(
+                                Address::Label("true_string".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Jmp(format!(".L.end.{}", count)),
+                            AsmInstruction::Label(format!(".L.else.{}", count)),
+                            AsmInstruction::Mov(
+                                Address::Label("false_string".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Label(format!(".L.end.{}", count)),
+                            AsmInstruction::Call("puts".to_string()),
+                        ]);
+                        expr_instruct
+                    }
                     ObjType::Nil => {
                         expr_instruct.extend(vec![
                             AsmInstruction::Mov(
@@ -553,7 +572,13 @@ impl Codegen {
                     )
                 }
                 Object::Identifier(_) => todo!(),
-                Object::Bool(_) => todo!(),
+                Object::Bool(b) => (
+                    vec![AsmInstruction::Mov(
+                        Address::Immediate(if *b { 1 } else { 0 }),
+                        Address::Reg(Reg::Rax),
+                    )],
+                    ObjType::Bool,
+                ),
                 Object::Nil => (
                     vec![AsmInstruction::Mov(
                         Address::Immediate(0),
