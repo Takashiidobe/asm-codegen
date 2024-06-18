@@ -126,6 +126,7 @@ pub enum AsmInstruction {
     Add(Address, Reg),
     Addsd(Reg, Reg),
     Sub(Address, Reg),
+    Subsd(Reg, Reg),
     Neg(Reg),
     Je(String),
     Jne(String),
@@ -174,6 +175,7 @@ impl fmt::Display for AsmInstruction {
             Add(left, right) => f.write_fmt(format_args!("  add {}, {}", left, right)),
             Addsd(left, right) => f.write_fmt(format_args!("  addsd {}, {}", left, right)),
             Sub(left, right) => f.write_fmt(format_args!("  sub {}, {}", left, right)),
+            Subsd(left, right) => f.write_fmt(format_args!("  subsd {}, {}", left, right)),
             Neg(reg) => f.write_fmt(format_args!("  neg {}", reg)),
             Jne(reg) => f.write_fmt(format_args!("  jne {}", reg)),
             Je(reg) => f.write_fmt(format_args!("  je {}", reg)),
@@ -350,6 +352,19 @@ impl Codegen {
                     }
                     (res, r_type)
                 }
+                Token {
+                    r#type: TokenType::Minus,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    if r_type == ObjType::Integer {
+                        res.push(AsmInstruction::Sub(Address::Reg(Reg::Rdi), Reg::Rax));
+                    }
+                    if r_type == ObjType::Float {
+                        res.push(AsmInstruction::Subsd(Reg::Xmm1, Reg::Xmm0));
+                    }
+                    (res, r_type)
+                }
                 _ => todo!(),
             },
             Expr::Assign { name, expr } => todo!(),
@@ -402,6 +417,10 @@ impl Codegen {
                     let label = self.new_float_label();
                     self.floats.push(AsmInstruction::Label(label.clone()));
                     self.floats.push(AsmInstruction::Double(*f));
+                    // each float needs to have its own unique location in memory.
+                    // ObjType float should set one up.
+                    // so we need a function that creates a new stack var and assigns it
+                    // and when we load it, we can use that as well.
                     (
                         vec![AsmInstruction::Movsd(
                             Address::LabelOffset(label, Reg::Rip),
@@ -434,7 +453,7 @@ impl Codegen {
     }
 
     fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {
-        let ((mut res, r_type), (left, l_type)) = (self.expr(left), self.expr(right));
+        let ((mut res, r_type), (left, l_type)) = (self.expr(right), self.expr(left));
         let res_copy = res.clone();
         if l_type != r_type {
             panic!(
@@ -449,10 +468,12 @@ impl Codegen {
         } else if l_type == ObjType::Float {
             res.push(AsmInstruction::Movsd(
                 Address::Reg(Reg::Xmm0),
+                // TODO: this needs to have the offset of the float in the stack
                 Address::IndirectOffset(-8, Reg::Rbp),
             ));
             res.extend(left);
             res.push(AsmInstruction::Movsd(
+                // TODO: this needs to have the offset of the float in the stack
                 Address::IndirectOffset(-8, Reg::Rbp),
                 Address::Reg(Reg::Xmm1),
             ));
