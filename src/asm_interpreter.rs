@@ -331,7 +331,21 @@ impl Codegen {
                 body,
                 return_type,
             } => todo!(),
-            Stmt::Return { keyword, value } => todo!(),
+            Stmt::Return { keyword, value } => {
+                let mut instructions = vec![];
+
+                instructions.extend(if let Some(val) = value {
+                    self.expr(val).0
+                } else {
+                    self.expr(&Expr::Literal { value: Object::Nil }).0
+                });
+                instructions.extend(vec![
+                    AsmInstruction::Xor(Reg::Rax, Reg::Rax),
+                    AsmInstruction::Leave,
+                    AsmInstruction::Ret,
+                ]);
+                instructions
+            }
             Stmt::If { cond, then, r#else } => {
                 let count = self.get_label();
                 let mut res = self.expr(cond).0;
@@ -525,7 +539,13 @@ impl Codegen {
                 }
                 Object::Identifier(_) => todo!(),
                 Object::Bool(_) => todo!(),
-                Object::Nil => todo!(),
+                Object::Nil => (
+                    vec![AsmInstruction::Mov(
+                        Address::Immediate(0),
+                        Address::Reg(Reg::Rax),
+                    )],
+                    ObjType::Nil,
+                ),
             },
             Expr::Grouping { expr } => self.expr(expr),
             Expr::Call {
