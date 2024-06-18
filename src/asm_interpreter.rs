@@ -1,4 +1,5 @@
 #![allow(unused)]
+use std::borrow::Borrow as _;
 use std::{collections::HashMap, fmt};
 
 use crate::token::{ObjType, TokenType};
@@ -18,6 +19,7 @@ pub struct Codegen {
     pub vars: HashMap<String, (OffsetOrLabel, ObjType)>,
     pub functions: HashMap<Token, ObjType>,
     pub labels: HashMap<String, String>,
+    label_count: u64,
     strings: Vec<AsmInstruction>,
     floats: Vec<AsmInstruction>,
 }
@@ -285,7 +287,7 @@ impl Codegen {
         match stmt {
             Stmt::Expr { expr } => self.expr(expr).0,
             Stmt::Var { name, initializer } => todo!(),
-            Stmt::Block { stmts } => todo!(),
+            Stmt::Block { stmts } => stmts.iter().flat_map(|x| self.stmt(x)).collect(),
             Stmt::Print { expr } => {
                 let (mut expr_instruct, obj_type) = self.expr(expr);
                 match obj_type {
@@ -330,7 +332,20 @@ impl Codegen {
                 return_type,
             } => todo!(),
             Stmt::Return { keyword, value } => todo!(),
-            Stmt::If { cond, then, r#else } => todo!(),
+            Stmt::If { cond, then, r#else } => {
+                let count = self.get_label();
+                let mut res = self.expr(cond).0;
+                res.push(AsmInstruction::Cmp(Address::Immediate(0), Reg::Rax));
+                res.push(AsmInstruction::Je(format!(".L.else.{}", count)));
+                res.extend(self.stmt(then));
+                res.push(AsmInstruction::Jmp(format!(".L.end.{}", count)));
+                res.push(AsmInstruction::Label(format!(".L.else.{}", count)));
+                if let Some(else_branch) = r#else.borrow() {
+                    res.extend(self.stmt(else_branch));
+                }
+                res.push(AsmInstruction::Label(format!(".L.end.{}", count)));
+                res
+            }
             Stmt::While { cond, body } => todo!(),
         }
     }
@@ -364,6 +379,85 @@ impl Codegen {
                         res.push(AsmInstruction::Subsd(Reg::Xmm1, Reg::Xmm0));
                     }
                     (res, r_type)
+                }
+
+                Token {
+                    r#type: TokenType::EqualEqual,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Sete(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
+                }
+                Token {
+                    r#type: TokenType::BangEqual,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Setne(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
+                }
+                Token {
+                    r#type: TokenType::Less,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Setl(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
+                }
+                Token {
+                    r#type: TokenType::LessEqual,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Setle(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
+                }
+                Token {
+                    r#type: TokenType::Greater,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Setg(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
+                }
+                Token {
+                    r#type: TokenType::GreaterEqual,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(left, right);
+                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                    res.push(AsmInstruction::Setge(Reg::Al));
+                    res.push(AsmInstruction::Movzb(
+                        Address::Reg(Reg::Al),
+                        Address::Reg(Reg::Rax),
+                    ));
+                    (res, ObjType::Bool)
                 }
                 _ => todo!(),
             },
@@ -450,6 +544,11 @@ impl Codegen {
     fn new_str_label(&mut self) -> String {
         self.str_count += 1;
         format!(".L.str.{}", self.str_count - 1)
+    }
+
+    fn get_label(&mut self) -> u64 {
+        self.label_count += 1;
+        self.label_count - 1
     }
 
     fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {

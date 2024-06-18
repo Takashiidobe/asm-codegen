@@ -1,8 +1,0 @@
-var x = 1;
-var y = 2;
-
-if (x == y) {
-	print x; // 1
-} else {
-	print y; // 2
-}
