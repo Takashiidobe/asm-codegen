@@ -263,6 +263,12 @@ impl Codegen {
             AsmInstruction::Variable("string".to_string(), Some("\"%d\\n\"".to_string())),
             AsmInstruction::Label(".format_f64".to_string()),
             AsmInstruction::Variable("string".to_string(), Some("\"%f\\n\"".to_string())),
+            AsmInstruction::Label(".nil_string".to_string()),
+            AsmInstruction::Variable("string".to_string(), Some("\"nil\"".to_string())),
+            AsmInstruction::Label(".true_string".to_string()),
+            AsmInstruction::Variable("string".to_string(), Some("\"true\"".to_string())),
+            AsmInstruction::Label(".false_string".to_string()),
+            AsmInstruction::Variable("string".to_string(), Some("\"false\"".to_string())),
             AsmInstruction::Label("neg_mask".to_string()),
             AsmInstruction::Variable("quad".to_string(), Some("0x8000000000000000".to_string())),
         ]
@@ -322,7 +328,16 @@ impl Codegen {
                         expr_instruct
                     }
                     ObjType::Bool => todo!(),
-                    ObjType::Nil => todo!(),
+                    ObjType::Nil => {
+                        expr_instruct.extend(vec![
+                            AsmInstruction::Mov(
+                                Address::Label("nil_string".to_string()),
+                                Address::Reg(Reg::Rdi),
+                            ),
+                            AsmInstruction::Call("puts".to_string()),
+                        ]);
+                        expr_instruct
+                    }
                 }
             }
             Stmt::Function {
