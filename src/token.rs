@@ -6,6 +6,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use crate::expr::Expr;
+
 #[cfg_attr(test, derive(Serialize, Deserialize))]
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TokenType {
@@ -22,6 +24,8 @@ pub enum TokenType {
     Colon,
     Slash,
     Star,
+    LeftBracket,
+    RightBracket,
     // One or two character tokens
     Bang,
     BangEqual,
@@ -131,6 +135,8 @@ impl fmt::Display for Token {
             (TokenType::IntType, _) => "i64".to_string(),
             (TokenType::FloatType, _) => "f64".to_string(),
             (TokenType::Colon, _) => ":".to_string(),
+            (TokenType::LeftBracket, _) => "[".to_string(),
+            (TokenType::RightBracket, _) => "]".to_string(),
         };
 
         f.write_str(&val)
@@ -146,6 +152,7 @@ pub enum Object {
     Float(f64),
     Identifier(String),
     Bool(bool),
+    Array(Vec<Expr>),
     #[default]
     Nil,
 }
@@ -156,6 +163,7 @@ pub enum Object {
 pub enum ObjType {
     String,
     Integer,
+    Array,
     Float,
     Bool,
     Nil,
@@ -170,6 +178,7 @@ impl PartialEq for Object {
             (Object::Float(left), Object::Float(right)) => left == right,
             (Object::Integer(left), Object::Integer(right)) => left == right,
             (Object::String(left), Object::String(right)) => left == right,
+            (Object::Array(left), Object::Array(right)) => left == right,
             _ => false,
         }
     }
@@ -190,6 +199,7 @@ impl fmt::Display for Object {
             Object::Identifier(ident) => f.write_str(ident),
             Object::Bool(b) => f.write_str(&b.to_string()),
             Object::Nil => f.write_str("nil"),
+            Object::Array(_) => f.write_str("[Array]"),
         }
     }
 }

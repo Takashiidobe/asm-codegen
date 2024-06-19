@@ -209,7 +209,7 @@ impl Codegen {
                 }
             }
         }
-        let size = self.vars.len() + 33;
+        let size = (self.var_offset.abs() + 2) as usize;
         let mut program = vec![AsmInstruction::Variable("text".to_string(), None)];
         let prologue = self.prologue(size);
         let epilogue = self.epilogue();
@@ -242,10 +242,7 @@ impl Codegen {
             AsmInstruction::Label("main".to_string()),
             AsmInstruction::Push(Reg::Rbp),
             AsmInstruction::Mov(Address::Reg(Reg::Rsp), Address::Reg(Reg::Rbp)),
-            AsmInstruction::Sub(
-                Address::Immediate(self.align_to(size * 8, 16) as i64),
-                Reg::Rsp,
-            ),
+            AsmInstruction::Sub(Address::Immediate(self.align_to(size, 16) as i64), Reg::Rsp),
         ]
     }
 
@@ -378,6 +375,11 @@ impl Codegen {
                         ]);
                         expr_instruct
                     }
+                    ObjType::Array => {
+                        // TODO: Print array
+                        expr_instruct.extend(vec![]);
+                        expr_instruct
+                    }
                 }
             }
             Stmt::Function {
@@ -474,7 +476,6 @@ impl Codegen {
                     }
                     (res, r_type)
                 }
-
                 Token {
                     r#type: TokenType::EqualEqual,
                     ..
@@ -665,6 +666,25 @@ impl Codegen {
                     )
                 }
                 Object::Identifier(_) => todo!(),
+                Object::Array(arr) => {
+                    let mut res = vec![];
+                    for item in arr {
+                        let offset = self.new_var_offset();
+                        let (evaled_expr, r_type) = self.expr(item);
+                        res.extend(evaled_expr);
+                        match r_type {
+                            ObjType::Bool | ObjType::Nil | ObjType::String | ObjType::Integer => {
+                                res.push(AsmInstruction::Mov(
+                                    Address::Reg(Reg::Rax),
+                                    Address::IndirectOffset(offset, Reg::Rbp),
+                                ));
+                            }
+                            ObjType::Array => todo!(),
+                            ObjType::Float => todo!(),
+                        }
+                    }
+                    (res, ObjType::Array)
+                }
                 Object::Bool(b) => (
                     vec![AsmInstruction::Mov(
                         Address::Immediate(if *b { 1 } else { 0 }),
@@ -703,6 +723,7 @@ impl Codegen {
                                 Address::IndirectOffset((i as i64 + 1) * -8, Reg::Rbp),
                             ));
                         }
+                        ObjType::Array => todo!(),
                     }
                 }
                 if let Expr::Var { name } = callee.borrow() {

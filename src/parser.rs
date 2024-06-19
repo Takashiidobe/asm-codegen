@@ -36,6 +36,7 @@ pub trait Parse {
     fn unary(&mut self) -> Result<Expr, Error>;
     fn finish_call(&mut self, callee: Expr) -> Result<Expr, Error>;
     fn call(&mut self) -> Result<Expr, Error>;
+    fn arr(&mut self) -> Result<Expr, Error>;
     fn primary(&mut self) -> Result<Expr, Error>;
 }
 
@@ -440,6 +441,25 @@ impl Parse for Parser {
         })
     }
 
+    fn arr(&mut self) -> Result<Expr, Error> {
+        let mut arguments = vec![];
+
+        if !self.check(&TokenType::RightBracket) {
+            loop {
+                arguments.push(self.expr()?);
+                if !self.r#match(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(&TokenType::RightBracket, "Expect ']' after arguments.")?;
+
+        Ok(Expr::Literal {
+            value: Object::Array(arguments),
+        })
+    }
+
     fn call(&mut self) -> Result<Expr, Error> {
         let mut expr = self.primary()?;
 
@@ -479,6 +499,8 @@ impl Parse for Parser {
             Expr::Grouping {
                 expr: Box::new(expr),
             }
+        } else if self.r#match(&[TokenType::LeftBracket]) {
+            self.arr()?
         } else {
             return Err(Error::Runtime {
                 token,
