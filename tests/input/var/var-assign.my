@@ -1,4 +1,4 @@
 var x = 10;
 var y = x;
 y = "hi";
-print y;
+print y; // print "hi"

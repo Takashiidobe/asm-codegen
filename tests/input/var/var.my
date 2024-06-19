@@ -1,0 +1,6 @@
+var x = "hi";
+var y = "world";
+print x; // print "hi"
+print y; // print "world"
+var z = 10;
+print z + 20; // print 30

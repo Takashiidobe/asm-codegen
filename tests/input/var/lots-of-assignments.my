@@ -1,0 +1,18 @@
+var a = "i";
+var b = "j";
+var c = "k";
+var d = "l";
+var e = "m";
+var f = e;
+var g = 10;
+var h = 20;
+var i = g + h;
+print a; // print "i"
+print b; // print "j"
+print c; // print "k"
+print d; // print "l"
+print e; // print "m"
+print f; // print "m"
+print g; // print 10
+print h; // print 20
+print i; // print 30

@@ -1,0 +1,9 @@
+var a = 10;
+var b = "hello";
+var c = 20;
+var d = "world";
+print a; // print 10
+print c; // print 20
+print a + c; // print 30
+print b; // print "hello"
+print d; // print "world"

@@ -1,0 +1,5 @@
+var x = "hi";
+var y = 10.2;
+x = 1.2;
+print x; // print 1.2
+print y; // print 10.2

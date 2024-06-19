@@ -16,7 +16,8 @@ pub struct Codegen {
     float_count: u64,
     str_count: u64,
     stack_offset: i64,
-    pub vars: HashMap<String, (OffsetOrLabel, ObjType)>,
+    pub vars: HashMap<String, (i64, ObjType)>,
+    var_offset: i64,
     pub functions: HashMap<Token, ObjType>,
     pub labels: HashMap<String, String>,
     label_count: u64,
@@ -51,12 +52,6 @@ pub enum Address {
     IndirectDouble(Reg, Reg),
     IndirectOffset(i64, Reg),
     LabelOffset(String, Reg),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum OffsetOrLabel {
-    Offset(i64),
-    Label(String),
 }
 
 impl fmt::Display for Address {
@@ -196,6 +191,7 @@ impl fmt::Display for AsmInstruction {
 impl Codegen {
     pub fn new() -> Self {
         Self {
+            var_offset: -32 * 8,
             ..Default::default()
         }
     }
@@ -213,7 +209,7 @@ impl Codegen {
                 }
             }
         }
-        let size = self.vars.len();
+        let size = self.vars.len() + 33;
         let mut program = vec![AsmInstruction::Variable("text".to_string(), None)];
         let prologue = self.prologue(size);
         let epilogue = self.epilogue();
@@ -284,15 +280,40 @@ impl Codegen {
         AsmInstruction::Pop(reg)
     }
 
-    fn offset(&mut self, obj: Option<Object>, obj_type: ObjType) -> OffsetOrLabel {
-        todo!()
-    }
-
     // make it so every expr returns a vector of results
     fn stmt(&mut self, stmt: &Stmt) -> Vec<AsmInstruction> {
         match stmt {
             Stmt::Expr { expr } => self.expr(expr).0,
-            Stmt::Var { name, initializer } => todo!(),
+            Stmt::Var { name, initializer } => {
+                let (mut res, r_type) = if let Some(init) = initializer {
+                    self.expr(init)
+                } else {
+                    self.expr(&Expr::Literal { value: Object::Nil })
+                };
+
+                let offset = self.new_var_offset();
+
+                self.vars.insert(name.lexeme.clone(), (offset, r_type));
+
+                if r_type == ObjType::Float {
+                    res.push(AsmInstruction::Movsd(
+                        Address::Reg(Reg::Xmm0),
+                        Address::IndirectOffset(offset, Reg::Rbp),
+                    ));
+                    res.push(AsmInstruction::Xorpd(
+                        Address::Reg(Reg::Xmm0),
+                        Address::Reg(Reg::Xmm0),
+                    ));
+                } else {
+                    res.push(AsmInstruction::Mov(
+                        Address::Reg(Reg::Rax),
+                        Address::IndirectOffset(offset, Reg::Rbp),
+                    ));
+                    res.push(AsmInstruction::Xor(Reg::Rax, Reg::Rax));
+                }
+
+                res
+            }
             Stmt::Block { stmts } => stmts.iter().flat_map(|x| self.stmt(x)).collect(),
             Stmt::Print { expr } => {
                 let (mut expr_instruct, obj_type) = self.expr(expr);
@@ -394,7 +415,21 @@ impl Codegen {
                 res.push(AsmInstruction::Label(format!(".L.end.{}", count)));
                 res
             }
-            Stmt::While { cond, body } => todo!(),
+            Stmt::While { cond, body } => {
+                let count = self.get_label();
+
+                let mut res = vec![];
+
+                res.push(AsmInstruction::Label(format!(".L.begin.{}", count)));
+                res.extend(self.expr(cond).0);
+                res.push(AsmInstruction::Cmp(Address::Immediate(0), Reg::Rax));
+                res.push(AsmInstruction::Je(format!(".L.end.{}", count)));
+                res.extend(self.stmt(body));
+                res.push(AsmInstruction::Jmp(format!(".L.begin.{}", count)));
+                res.push(AsmInstruction::Label(format!(".L.end.{}", count)));
+
+                res
+            }
         }
     }
 
@@ -509,8 +544,55 @@ impl Codegen {
                 }
                 _ => todo!(),
             },
-            Expr::Assign { name, expr } => todo!(),
-            Expr::Var { name } => todo!(),
+            Expr::Assign { name, expr } => {
+                let (mut res, r_type) = self.expr(expr);
+
+                let offset = self.vars.get(&name.lexeme);
+                if let Some((off, _)) = offset {
+                    if r_type == ObjType::Float {
+                        res.push(AsmInstruction::Movsd(
+                            Address::Reg(Reg::Xmm0),
+                            Address::IndirectOffset(*off, Reg::Rbp),
+                        ));
+                        res.push(AsmInstruction::Xorpd(
+                            Address::Reg(Reg::Xmm0),
+                            Address::Reg(Reg::Xmm0),
+                        ));
+                    } else {
+                        res.push(AsmInstruction::Mov(
+                            Address::Reg(Reg::Rax),
+                            Address::IndirectOffset(*off, Reg::Rbp),
+                        ));
+                        res.push(AsmInstruction::Xor(Reg::Rax, Reg::Rax));
+                    }
+
+                    self.vars.insert(name.lexeme.clone(), (*off, r_type));
+                } else {
+                    panic!("Var {name} was not defined");
+                }
+
+                (res, r_type)
+            }
+            Expr::Var { name } => {
+                if let Some((offset, r_type)) = self.vars.get(&name.lexeme) {
+                    (
+                        if *r_type == ObjType::Float {
+                            vec![AsmInstruction::Movsd(
+                                Address::IndirectOffset(*offset, Reg::Rbp),
+                                Address::Reg(Reg::Xmm0),
+                            )]
+                        } else {
+                            vec![AsmInstruction::Mov(
+                                Address::IndirectOffset(*offset, Reg::Rbp),
+                                Address::Reg(Reg::Rax),
+                            )]
+                        },
+                        *r_type,
+                    )
+                } else {
+                    panic!("Var {name} was not defined");
+                }
+            }
             Expr::Logical { left, op, right } => todo!(),
             Expr::Unary { op, expr } => {
                 if let Token {
@@ -604,6 +686,11 @@ impl Codegen {
     fn new_str_label(&mut self) -> String {
         self.str_count += 1;
         format!(".L.str.{}", self.str_count - 1)
+    }
+
+    fn new_var_offset(&mut self) -> i64 {
+        self.var_offset -= 8;
+        self.var_offset - 8
     }
 
     fn get_label(&mut self) -> u64 {
