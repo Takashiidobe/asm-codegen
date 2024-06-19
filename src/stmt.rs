@@ -25,7 +25,7 @@ pub enum Stmt {
     },
     Function {
         name: Token,
-        params: Vec<Token>,
+        params: Vec<(Token, ObjType)>,
         body: Vec<Stmt>,
         return_type: ObjType,
     },
@@ -59,7 +59,7 @@ pub trait StmtVisitor<R> {
     fn visit_function_stmt(
         &mut self,
         name: &Token,
-        params: &[Token],
+        params: &[(Token, ObjType)],
         body: &[Stmt],
         return_type: &ObjType,
     ) -> Result<R, Error>;

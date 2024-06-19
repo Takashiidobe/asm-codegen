@@ -177,10 +177,23 @@ impl Parse for Parser {
 
         if !self.check(&TokenType::RightParen) {
             loop {
-                if params.len() >= 255 {
-                    self.error(&self.peek(), "Cannot have more than 255 parameters.");
+                if params.len() > 32 {
+                    self.error(&self.peek(), "Cannot have more than 32 parameters.");
                 }
-                params.push(self.consume(&TokenType::Identifier, "Expect parameter name.")?);
+                let param_name = self.consume(&TokenType::Identifier, "Expect parameter name.")?;
+                self.consume(&TokenType::Colon, "Expect colon")?;
+                let param_type = if self.r#match(&[TokenType::IntType]) {
+                    ObjType::Integer
+                } else if self.r#match(&[TokenType::FloatType]) {
+                    ObjType::Float
+                } else if self.r#match(&[TokenType::StrType]) {
+                    ObjType::String
+                } else if self.r#match(&[TokenType::BoolType]) {
+                    ObjType::Bool
+                } else {
+                    ObjType::Nil
+                };
+                params.push((param_name, param_type));
 
                 if !self.r#match(&[TokenType::Comma]) {
                     break;
@@ -409,8 +422,8 @@ impl Parse for Parser {
         if !self.check(&TokenType::RightParen) {
             loop {
                 arguments.push(self.expr()?);
-                if arguments.len() >= 255 {
-                    self.error(&self.peek(), "Can't have more than 255 arguments.");
+                if arguments.len() > 32 {
+                    self.error(&self.peek(), "Can't have more than 32 arguments.");
                 }
                 if !self.r#match(&[TokenType::Comma]) {
                     break;

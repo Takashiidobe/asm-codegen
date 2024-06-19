@@ -18,7 +18,7 @@ pub struct Codegen {
     stack_offset: i64,
     pub vars: HashMap<String, (i64, ObjType)>,
     var_offset: i64,
-    pub functions: HashMap<Token, ObjType>,
+    pub functions: HashMap<String, ObjType>,
     pub labels: HashMap<String, String>,
     label_count: u64,
     strings: Vec<AsmInstruction>,
@@ -385,7 +385,22 @@ impl Codegen {
                 params,
                 body,
                 return_type,
-            } => todo!(),
+            } => {
+                self.functions.insert(name.lexeme.clone(), *return_type);
+                let mut res = vec![AsmInstruction::Label(name.to_string())];
+
+                for (i, (param, r_type)) in params.iter().enumerate() {
+                    let offset = (i as i64 + 1) * -8;
+                    self.vars.insert(param.lexeme.clone(), (offset, *r_type));
+                }
+
+                for stmt in body {
+                    res.extend(self.stmt(stmt));
+                }
+
+                res.push(AsmInstruction::Ret);
+                res
+            }
             Stmt::Return { keyword, value } => {
                 let mut instructions = vec![];
 
@@ -394,11 +409,7 @@ impl Codegen {
                 } else {
                     self.expr(&Expr::Literal { value: Object::Nil }).0
                 });
-                instructions.extend(vec![
-                    AsmInstruction::Xor(Reg::Rax, Reg::Rax),
-                    AsmInstruction::Leave,
-                    AsmInstruction::Ret,
-                ]);
+                instructions.extend(vec![AsmInstruction::Ret]);
                 instructions
             }
             Stmt::If { cond, then, r#else } => {
@@ -674,7 +685,33 @@ impl Codegen {
                 callee,
                 paren,
                 arguments,
-            } => todo!(),
+            } => {
+                let mut res = vec![];
+                for (i, arg) in arguments.into_iter().enumerate() {
+                    let (mut evaled_arg, r_type) = self.expr(arg);
+                    res.extend(evaled_arg);
+                    match r_type {
+                        ObjType::String | ObjType::Bool | ObjType::Nil | ObjType::Integer => {
+                            res.push(AsmInstruction::Mov(
+                                Address::Reg(Reg::Rax),
+                                Address::IndirectOffset((i as i64 + 1) * -8, Reg::Rbp),
+                            ));
+                        }
+                        ObjType::Float => {
+                            res.push(AsmInstruction::Movsd(
+                                Address::Reg(Reg::Xmm0),
+                                Address::IndirectOffset((i as i64 + 1) * -8, Reg::Rbp),
+                            ));
+                        }
+                    }
+                }
+                if let Expr::Var { name } = callee.borrow() {
+                    res.push(AsmInstruction::Call(name.to_string()));
+                    let r_type = self.functions.get(&name.lexeme).unwrap();
+                    return (res, *r_type);
+                }
+                todo!()
+            }
         }
     }
 

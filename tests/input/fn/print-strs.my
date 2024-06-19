@@ -1,0 +1,5 @@
+fun sprint(a: str, b: str) -> {
+	print a;
+	print b;
+}
+sprint("hi", "world");

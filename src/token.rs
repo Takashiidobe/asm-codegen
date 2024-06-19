@@ -19,6 +19,7 @@ pub enum TokenType {
     Minus,
     Plus,
     Semicolon,
+    Colon,
     Slash,
     Star,
     // One or two character tokens
@@ -129,6 +130,7 @@ impl fmt::Display for Token {
             (TokenType::BoolType, _) => "bool".to_string(),
             (TokenType::IntType, _) => "i64".to_string(),
             (TokenType::FloatType, _) => "f64".to_string(),
+            (TokenType::Colon, _) => ":".to_string(),
         };
 
         f.write_str(&val)

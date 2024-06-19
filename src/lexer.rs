@@ -68,6 +68,7 @@ impl Lexer {
             '+' => self.add_token(TokenType::Plus, None),
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
+            ':' => self.add_token(TokenType::Colon, None),
             '!' => self.add_relational_token(TokenType::Bang, TokenType::BangEqual),
             '=' => self.add_relational_token(TokenType::Equal, TokenType::EqualEqual),
             '<' => self.add_relational_token(TokenType::Less, TokenType::LessEqual),
