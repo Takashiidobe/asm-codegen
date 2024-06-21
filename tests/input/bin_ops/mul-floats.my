@@ -1,0 +1,2 @@
+print 1.1 * 2.2; // prints 2.24
+print 1.1 * 2.2 * 3.3; // prints 7.986
