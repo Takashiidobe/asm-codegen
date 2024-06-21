@@ -806,13 +806,19 @@ impl Codegen {
         } else if l_type == ObjType::Float {
             res.push(AsmInstruction::Movsd(
                 Address::Reg(Reg::Xmm0),
-                // TODO: this needs to have the offset of the float in the stack
                 Address::IndirectOffset(-8, Reg::Rbp),
             ));
             res.extend(left);
             res.push(AsmInstruction::Movsd(
-                // TODO: this needs to have the offset of the float in the stack
+                Address::Reg(Reg::Xmm0),
+                Address::IndirectOffset(-16, Reg::Rbp),
+            ));
+            res.push(AsmInstruction::Movsd(
                 Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Xmm0),
+            ));
+            res.push(AsmInstruction::Movsd(
+                Address::IndirectOffset(-16, Reg::Rbp),
                 Address::Reg(Reg::Xmm1),
             ));
         } else if l_type == ObjType::String {
