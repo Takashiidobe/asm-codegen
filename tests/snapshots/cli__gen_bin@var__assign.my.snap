@@ -1,0 +1,14 @@
+---
+source: tests/cli.rs
+info:
+  program: assign.my.out
+  args: []
+input_file: tests/input/var/assign.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+10
+world
+
+----- stderr -----

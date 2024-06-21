@@ -1,14 +1,13 @@
 ---
 source: tests/cli.rs
 info:
-  program: print-10-twice.my.out
+  program: ex.my.out
   args: []
-input_file: tests/input/print/print-10-twice.my
+input_file: tests/input/programs/ex.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-10
-10
+55
 
 ----- stderr -----

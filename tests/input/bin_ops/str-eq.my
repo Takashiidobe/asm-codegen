@@ -1,0 +1,7 @@
+print "prints true";
+print "hi" == "hi"; // prints true
+print "hi" != "world"; // prints true
+
+print "prints false";
+print "hi" == "world"; // prints false
+print "hi" != "hi"; // prints false

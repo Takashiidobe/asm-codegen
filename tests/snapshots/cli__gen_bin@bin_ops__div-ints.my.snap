@@ -1,0 +1,15 @@
+---
+source: tests/cli.rs
+info:
+  program: div-ints.my.out
+  args: []
+input_file: tests/input/bin_ops/div-ints.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+4
+1
+14
+
+----- stderr -----

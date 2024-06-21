@@ -1,0 +1,14 @@
+---
+source: tests/cli.rs
+info:
+  program: mul-ints.my.out
+  args: []
+input_file: tests/input/bin_ops/mul-ints.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+2
+6
+
+----- stderr -----

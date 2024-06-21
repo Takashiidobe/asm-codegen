@@ -1,3 +1,7 @@
-while (1 < 2) {
-	print 1;
+var x = 0;
+while (x < 2) {
+	print x;
+	x = x + 1;
 }
+
+print "correctly left the while loop after 2 iterations";

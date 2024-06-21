@@ -1,14 +1,13 @@
 ---
 source: tests/cli.rs
-assertion_line: 67
 info:
   program: concat-multiple-strs.my.out
   args: []
 input_file: tests/input/bin_ops/concat-multiple-strs.my
 ---
-success: false
-exit_code: -1
+success: true
+exit_code: 0
 ----- stdout -----
+hello world from my language
 
 ----- stderr -----
-malloc(): corrupted top size

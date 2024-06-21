@@ -1,1 +1,1 @@
-print "hello" + " world" + "from my language";
+print "hello" + " world " + "from my language";

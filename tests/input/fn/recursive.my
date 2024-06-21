@@ -3,4 +3,4 @@ fun add(a: i64, b: i64) -> i64 {
 	return 1 + add(a - 1, b);
 }
 
-print add(3, 2);
+print add(3, 2); // prints 5

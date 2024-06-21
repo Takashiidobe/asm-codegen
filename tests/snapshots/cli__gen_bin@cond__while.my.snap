@@ -1,0 +1,23 @@
+---
+source: tests/cli.rs
+info:
+  program: while.my.out
+  args: []
+input_file: tests/input/cond/while.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+correctly left the while loop
+
+----- stderr -----

@@ -1,0 +1,14 @@
+---
+source: tests/cli.rs
+info:
+  program: sub-ints.my.out
+  args: []
+input_file: tests/input/bin_ops/sub-ints.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+2
+21
+
+----- stderr -----

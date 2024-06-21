@@ -1,0 +1,13 @@
+---
+source: tests/cli.rs
+info:
+  program: else.my.out
+  args: []
+input_file: tests/input/cond/else.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+correct
+
+----- stderr -----

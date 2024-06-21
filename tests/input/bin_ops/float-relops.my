@@ -1,0 +1,19 @@
+print "should be all true";
+print 1.2 == 1.2; // print true
+print 1.2 != 1.3; // print true
+print 1.2 < 1.3; // print true
+print 1.2 <= 1.3; // print true
+print 1.3 <= 1.3; // print true
+print 1.3 > 1.2; // print true
+print 1.3 >= 1.2; // print true
+print 1.3 >= 1.3; // print true
+
+print "should be all false";
+print 1.3 == 1.2; // print false
+print 1.2 != 1.2; // print false
+print 1.3 < 1.2; // print false
+print 1.3 <= 1.2; // print false
+print 1.2 <= 1.3; // print false
+print 1.2 > 1.3; // print false
+print 1.2 >= 1.3; // print false
+print 1.2 >= 1.3; // print false

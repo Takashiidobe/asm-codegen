@@ -2,11 +2,11 @@ var x = 1;
 var y = 2;
 
 if (x == y) {
-	print "x == y";
+	print "incorrect";
 } else {
 	if (x != 1) {
-		print "x != 1";
+		print "incorrect";
 	} else {
-		print "x == 1"; // prints "x == 1"
+		print "correct branch"; // prints "correct branch"
 	}
 }

@@ -1,0 +1,15 @@
+---
+source: tests/cli.rs
+info:
+  program: multiple-var-nums.my.out
+  args: []
+input_file: tests/input/var/multiple-var-nums.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+10
+20
+30
+
+----- stderr -----

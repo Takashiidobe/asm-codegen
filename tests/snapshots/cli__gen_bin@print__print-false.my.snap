@@ -1,13 +1,13 @@
 ---
 source: tests/cli.rs
 info:
-  program: print-float.my.out
+  program: print-false.my.out
   args: []
-input_file: tests/input/print/print-float.my
+input_file: tests/input/print/print-false.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-1.100000
+false
 
 ----- stderr -----

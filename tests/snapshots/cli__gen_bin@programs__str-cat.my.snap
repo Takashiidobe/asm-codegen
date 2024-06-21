@@ -1,0 +1,13 @@
+---
+source: tests/cli.rs
+info:
+  program: str-cat.my.out
+  args: []
+input_file: tests/input/programs/str-cat.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+hi world it's me, mario
+
+----- stderr -----

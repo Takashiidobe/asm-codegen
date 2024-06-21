@@ -1,13 +1,13 @@
 ---
 source: tests/cli.rs
 info:
-  program: print-str.my.out
+  program: precedence.my.out
   args: []
-input_file: tests/input/print/print-str.my
+input_file: tests/input/bin_ops/precedence.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-hello world
+2
 
 ----- stderr -----

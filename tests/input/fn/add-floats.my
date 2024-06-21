@@ -1,2 +1,4 @@
-fun add(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, g: f64) -> f64 { return a + b + c + d + e + f + g; }
+fun add(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, g: f64) -> f64 {
+	return a + b + c + d + e + f + g;
+}
 print add(1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7);

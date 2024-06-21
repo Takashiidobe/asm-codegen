@@ -1,0 +1,10 @@
+print 1 < 2; // prints true
+print 1 > 2; // prints false
+print 1 != 2; // prints true
+print 1 == 2; // prints false
+print 1 <= 2; // prints true
+print 1 >= 2; // prints false
+print "hi" == "hi"; // prints true
+print "hi" != "hi"; // prints false
+print "w" != "lol"; // prints true
+print "hello" == "world"; // prints false

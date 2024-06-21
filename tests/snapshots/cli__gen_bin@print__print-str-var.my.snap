@@ -1,14 +1,13 @@
 ---
 source: tests/cli.rs
 info:
-  program: add-floats.my.out
+  program: print-str-var.my.out
   args: []
-input_file: tests/input/bin_ops/add-floats.my
+input_file: tests/input/print/print-str-var.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-3.300000
-26.400000
+hello world
 
 ----- stderr -----

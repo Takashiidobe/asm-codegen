@@ -12,35 +12,6 @@ struct TestOutput {
     stderr: Vec<String>,
 }
 
-// #[test]
-// fn gen_asm() {
-//     glob!("input", "**/*.my", |path| {
-//         let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-//
-//         let Output {
-//             status,
-//             stdout,
-//             stderr,
-//         } = cmd.arg(path).output().unwrap();
-//
-//         let test_output = TestOutput {
-//             status: status.code().unwrap(),
-//             stdout: String::from_utf8_lossy(&stdout)
-//                 .to_string()
-//                 .lines()
-//                 .map(|x| x.to_owned())
-//                 .collect(),
-//             stderr: String::from_utf8_lossy(&stderr)
-//                 .to_string()
-//                 .lines()
-//                 .map(|x| x.to_owned())
-//                 .collect(),
-//         };
-//
-//         assert_yaml_snapshot!(test_output);
-//     });
-// }
-
 #[test]
 fn gen_bin() {
     glob!("input", "**/*.my", |path| {
@@ -55,7 +26,7 @@ fn gen_bin() {
 
         let out_name = format!("{}.out", path.display());
 
-        Command::new("gcc")
+        Command::new("cc")
             .arg("-o")
             .arg(&out_name)
             .arg("-xassembler")

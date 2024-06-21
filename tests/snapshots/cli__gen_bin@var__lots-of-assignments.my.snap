@@ -1,0 +1,21 @@
+---
+source: tests/cli.rs
+info:
+  program: lots-of-assignments.my.out
+  args: []
+input_file: tests/input/var/lots-of-assignments.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+i
+j
+k
+l
+m
+m
+10
+20
+30
+
+----- stderr -----

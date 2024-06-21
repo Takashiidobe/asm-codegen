@@ -1,13 +1,13 @@
 ---
 source: tests/cli.rs
 info:
-  program: print-10.my.out
+  program: print-true.my.out
   args: []
-input_file: tests/input/print/print-10.my
+input_file: tests/input/print/print-true.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-10
+true
 
 ----- stderr -----

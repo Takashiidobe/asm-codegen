@@ -1,15 +1,13 @@
 ---
 source: tests/cli.rs
-assertion_line: 67
 info:
-  program: sub-floats.my.out
+  program: nested-else.my.out
   args: []
-input_file: tests/input/bin_ops/sub-floats.my
+input_file: tests/input/cond/nested-else.my
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-1.100000
-0.000000
+correct branch
 
 ----- stderr -----
