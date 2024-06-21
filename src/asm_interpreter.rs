@@ -1,4 +1,5 @@
 #![allow(unused)]
+
 use std::borrow::Borrow as _;
 use std::{collections::HashMap, fmt};
 
@@ -218,12 +219,13 @@ impl Codegen {
         program.extend(prologue);
         program.extend(body);
         program.extend(epilogue);
-        if !self.strings.is_empty() {
+        if !self.strings.is_empty() || !self.floats.is_empty() {
             program.push(AsmInstruction::Variable("data".to_string(), None));
+        }
+        if !self.strings.is_empty() {
             program.extend(self.strings.clone());
         }
         if !self.floats.is_empty() {
-            program.push(AsmInstruction::Variable("data".to_string(), None));
             program.extend(self.floats.clone());
         }
         program
@@ -238,6 +240,35 @@ impl Codegen {
 
     fn prologue(&mut self, size: usize) -> Vec<AsmInstruction> {
         vec![
+            AsmInstruction::Label("str_concat".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rdi),
+            ),
+            AsmInstruction::Call("strlen".to_string()),
+            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rbx)),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-16, Reg::Rbp),
+                Address::Reg(Reg::Rdi),
+            ),
+            AsmInstruction::Call("strlen".to_string()),
+            AsmInstruction::Add(Address::Reg(Reg::Rbx), Reg::Rax),
+            AsmInstruction::Add(Address::Immediate(1), Reg::Rax),
+            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rdi)),
+            AsmInstruction::Call("malloc".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rsi),
+            ),
+            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rdi)),
+            AsmInstruction::Call("strcpy".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-16, Reg::Rbp),
+                Address::Reg(Reg::Rsi),
+            ),
+            AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rdi)),
+            AsmInstruction::Call("strcat".to_string()),
+            AsmInstruction::Ret,
             AsmInstruction::Variable("globl".to_string(), Some("main".to_string())),
             AsmInstruction::Label("main".to_string()),
             AsmInstruction::Push(Reg::Rbp),
@@ -460,6 +491,9 @@ impl Codegen {
                     }
                     if r_type == ObjType::Float {
                         res.push(AsmInstruction::Addsd(Reg::Xmm1, Reg::Xmm0));
+                    }
+                    if r_type == ObjType::String {
+                        res.push(AsmInstruction::Call("str_concat".to_string()));
                     }
                     (res, r_type)
                 }
@@ -707,7 +741,7 @@ impl Codegen {
                 arguments,
             } => {
                 let mut res = vec![];
-                for (i, arg) in arguments.into_iter().enumerate() {
+                for (i, arg) in arguments.iter().enumerate() {
                     let (mut evaled_arg, r_type) = self.expr(arg);
                     res.extend(evaled_arg);
                     match r_type {
@@ -757,7 +791,7 @@ impl Codegen {
     }
 
     fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {
-        let ((mut res, r_type), (left, l_type)) = (self.expr(right), self.expr(left));
+        let ((mut res, l_type), (left, r_type)) = (self.expr(left), self.expr(right));
         let res_copy = res.clone();
         if l_type != r_type {
             panic!(
@@ -784,46 +818,13 @@ impl Codegen {
         } else if l_type == ObjType::String {
             res.push(AsmInstruction::Mov(
                 Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rdi),
-            ));
-            res.push(AsmInstruction::Call("strlen".to_string()));
-            res.push(AsmInstruction::Movq(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rbx),
-            ));
-            res.extend(left.clone());
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rdi),
-            ));
-            res.push(AsmInstruction::Call("strlen".to_string()));
-            res.push(AsmInstruction::Add(Address::Reg(Reg::Rbx), Reg::Rax));
-            res.push(AsmInstruction::Add(Address::Immediate(1), Reg::Rax));
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rdi),
-            ));
-            res.push(AsmInstruction::Call("malloc".to_string()));
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
                 Address::IndirectOffset(-8, Reg::Rbp),
             ));
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rdi),
-            ));
-            res.extend(res_copy);
-            res.push(AsmInstruction::Mov(
-                Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rsi),
-            ));
-            res.push(AsmInstruction::Call("strcpy".to_string()));
             res.extend(left);
             res.push(AsmInstruction::Mov(
                 Address::Reg(Reg::Rax),
-                Address::Reg(Reg::Rsi),
+                Address::IndirectOffset(-16, Reg::Rbp),
             ));
-            res.push(AsmInstruction::Call("strcat".to_string()));
         }
         (res, l_type)
     }

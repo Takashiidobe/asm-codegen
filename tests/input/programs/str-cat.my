@@ -1,0 +1,6 @@
+fun catthree(x: str, y: str, z: str) -> str {
+	return x + y + z;
+}
+
+var y = catthree("hi", " world ", "it's me, mario");
+print y;
