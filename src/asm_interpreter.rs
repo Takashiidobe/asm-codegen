@@ -119,14 +119,14 @@ pub enum AsmInstruction {
     Ret,
     Test(Reg, Reg),
     Cmp(Address, Reg),
-    IMul(Reg, Reg),
-    IDiv(Reg, Reg),
     Add(Address, Reg),
     Addsd(Reg, Reg),
     Sub(Address, Reg),
     Subsd(Reg, Reg),
-    Mul(Address, Reg),
+    IMul(Address, Reg),
     Mulsd(Reg, Reg),
+    IDiv(Address, Reg),
+    Divsd(Reg, Reg),
     Neg(Reg),
     Je(String),
     Jne(String),
@@ -170,14 +170,14 @@ impl fmt::Display for AsmInstruction {
             Movsd(left, right) => f.write_fmt(format_args!("  movsd {}, {}", left, right)),
             Movzb(left, right) => f.write_fmt(format_args!("  movzb {}, {}", left, right)),
             Cqo => f.write_fmt(format_args!("  cqo")),
-            IMul(left, right) => f.write_fmt(format_args!("  imul {}, {}", left, right)),
-            IDiv(left, right) => f.write_fmt(format_args!("  idiv {}, {}", left, right)),
             Add(left, right) => f.write_fmt(format_args!("  add {}, {}", left, right)),
             Addsd(left, right) => f.write_fmt(format_args!("  addsd {}, {}", left, right)),
             Sub(left, right) => f.write_fmt(format_args!("  sub {}, {}", left, right)),
             Subsd(left, right) => f.write_fmt(format_args!("  subsd {}, {}", left, right)),
-            Mul(left, right) => f.write_fmt(format_args!("  mul {}, {}", left, right)),
+            IMul(left, right) => f.write_fmt(format_args!("  imul {}, {}", left, right)),
             Mulsd(left, right) => f.write_fmt(format_args!("  mulsd {}, {}", left, right)),
+            IDiv(left, right) => f.write_fmt(format_args!("  idiv {}, {}", left, right)),
+            Divsd(left, right) => f.write_fmt(format_args!("  divsd {}, {}", left, right)),
             Neg(reg) => f.write_fmt(format_args!("  neg {}", reg)),
             Jne(reg) => f.write_fmt(format_args!("  jne {}", reg)),
             Je(reg) => f.write_fmt(format_args!("  je {}", reg)),
@@ -520,10 +520,24 @@ impl Codegen {
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
                     if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::Mul(Address::Reg(Reg::Rdi), Reg::Rax));
+                        res.push(AsmInstruction::IMul(Address::Reg(Reg::Rdi), Reg::Rax));
                     }
                     if r_type == ObjType::Float {
                         res.push(AsmInstruction::Mulsd(Reg::Xmm1, Reg::Xmm0));
+                    }
+                    (res, r_type)
+                }
+                Token {
+                    r#type: TokenType::Slash,
+                    ..
+                } => {
+                    let (mut res, r_type) = self.bin_op_fetch(right, left);
+                    if r_type == ObjType::Integer {
+                        res.push(AsmInstruction::Cqo);
+                        res.push(AsmInstruction::IDiv(Address::Reg(Reg::Rdi), Reg::Rax));
+                    }
+                    if r_type == ObjType::Float {
+                        res.push(AsmInstruction::Divsd(Reg::Xmm1, Reg::Xmm0));
                     }
                     (res, r_type)
                 }
