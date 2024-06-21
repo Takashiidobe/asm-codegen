@@ -3,6 +3,7 @@
 use std::borrow::Borrow as _;
 use std::{collections::HashMap, fmt};
 
+use crate::error::error;
 use crate::token::{ObjType, TokenType};
 use crate::{
     expr::Expr,
@@ -490,14 +491,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::Add(Address::Reg(Reg::Rdi), Reg::Rax));
-                    }
-                    if r_type == ObjType::Float {
-                        res.push(AsmInstruction::Addsd(Reg::Xmm1, Reg::Xmm0));
-                    }
-                    if r_type == ObjType::String {
-                        res.push(AsmInstruction::Call("str_concat".to_string()));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Add(Address::Reg(Reg::Rdi), Reg::Rax));
+                        }
+                        ObjType::Float => {
+                            res.push(AsmInstruction::Addsd(Reg::Xmm1, Reg::Xmm0));
+                        }
+                        ObjType::String => {
+                            res.push(AsmInstruction::Call("str_concat".to_string()));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call '{op}' on operands {left:?}, {right:?}"),
+                        ),
                     }
                     (res, r_type)
                 }
@@ -506,11 +513,17 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::Sub(Address::Reg(Reg::Rdi), Reg::Rax));
-                    }
-                    if r_type == ObjType::Float {
-                        res.push(AsmInstruction::Subsd(Reg::Xmm1, Reg::Xmm0));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Sub(Address::Reg(Reg::Rdi), Reg::Rax));
+                        }
+                        ObjType::Float => {
+                            res.push(AsmInstruction::Subsd(Reg::Xmm1, Reg::Xmm0));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call '{op}' on operands {left:?}, {right:?}"),
+                        ),
                     }
                     (res, r_type)
                 }
@@ -519,11 +532,17 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::IMul(Address::Reg(Reg::Rdi), Reg::Rax));
-                    }
-                    if r_type == ObjType::Float {
-                        res.push(AsmInstruction::Mulsd(Reg::Xmm1, Reg::Xmm0));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::IMul(Address::Reg(Reg::Rdi), Reg::Rax));
+                        }
+                        ObjType::Float => {
+                            res.push(AsmInstruction::Mulsd(Reg::Xmm1, Reg::Xmm0));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call '{op}' on operands {left:?}, {right:?}"),
+                        ),
                     }
                     (res, r_type)
                 }
@@ -532,12 +551,18 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(right, left);
-                    if r_type == ObjType::Integer {
-                        res.push(AsmInstruction::Cqo);
-                        res.push(AsmInstruction::IDiv(Address::Reg(Reg::Rdi), Reg::Rax));
-                    }
-                    if r_type == ObjType::Float {
-                        res.push(AsmInstruction::Divsd(Reg::Xmm1, Reg::Xmm0));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cqo);
+                            res.push(AsmInstruction::IDiv(Address::Reg(Reg::Rdi), Reg::Rax));
+                        }
+                        ObjType::Float => {
+                            res.push(AsmInstruction::Divsd(Reg::Xmm1, Reg::Xmm0));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
                     }
                     (res, r_type)
                 }
@@ -546,12 +571,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Sete(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Sete(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 Token {
@@ -559,12 +592,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Setne(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Setne(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 Token {
@@ -572,12 +613,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Setl(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Setl(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 Token {
@@ -585,12 +634,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Setle(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Setle(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 Token {
@@ -598,12 +655,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Setg(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Setg(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 Token {
@@ -611,12 +676,20 @@ impl Codegen {
                     ..
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
-                    res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
-                    res.push(AsmInstruction::Setge(Reg::Al));
-                    res.push(AsmInstruction::Movzb(
-                        Address::Reg(Reg::Al),
-                        Address::Reg(Reg::Rax),
-                    ));
+                    match r_type {
+                        ObjType::Integer => {
+                            res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
+                            res.push(AsmInstruction::Setge(Reg::Al));
+                            res.push(AsmInstruction::Movzb(
+                                Address::Reg(Reg::Al),
+                                Address::Reg(Reg::Rax),
+                            ));
+                        }
+                        _ => error(
+                            op.line,
+                            &format!("Cannot call {op} on operands {left:?}, {right:?}"),
+                        ),
+                    }
                     (res, ObjType::Bool)
                 }
                 _ => todo!(),

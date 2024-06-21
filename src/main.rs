@@ -121,9 +121,9 @@ fn repl(mode: Mode) -> Result<(), Box<dyn Error>> {
                 let tokens = lexer.scan_tokens();
                 let mut parser = Parser::new(tokens.clone());
                 let stmts = parser.parse();
+                let mut codegen = Codegen::new();
                 match mode {
                     Mode::Asm => {
-                        let mut codegen = Codegen::new();
                         let instructions = codegen.program(&stmts?);
                         for instruction in instructions {
                             println!("{}", instruction);
