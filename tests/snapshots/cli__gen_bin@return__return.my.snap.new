@@ -1,0 +1,13 @@
+---
+source: tests/cli.rs
+assertion_line: 38
+info:
+  program: return.my.out
+  args: []
+input_file: tests/input/return/return.my
+---
+success: false
+exit_code: -1
+----- stdout -----
+
+----- stderr -----

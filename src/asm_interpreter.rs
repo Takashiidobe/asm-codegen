@@ -41,6 +41,8 @@ pub enum Reg {
     Rip,
     Xmm0,
     Xmm1,
+    Ecx,
+    Eax,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +89,8 @@ impl fmt::Display for Reg {
             Reg::Xmm0 => "%xmm0",
             Reg::Xmm1 => "%xmm1",
             Reg::Rbx => "%rbx",
+            Reg::Ecx => "%ecx",
+            Reg::Eax => "%eax",
         })
     }
 }
@@ -96,7 +100,7 @@ pub enum AsmInstruction {
     Section(String),
     Variable(String, Option<String>),
     Label(String),
-    Xor(Reg, Reg),
+    Xor(Address, Reg),
     Push(Reg),
     Pop(Reg),
     Or(Address, Reg),
@@ -107,6 +111,8 @@ pub enum AsmInstruction {
     Movq(Address, Address),
     Movb(Address, Address),
     Movsd(Address, Address),
+    Movsbl(Address, Address),
+    Movzbl(Address, Address),
     Movzb(Address, Address),
     Setae(Reg),
     Sete(Reg),
@@ -122,7 +128,7 @@ pub enum AsmInstruction {
     Seta(Reg),
     Cqo,
     Ret,
-    Test(Reg, Reg),
+    Test(Address, Address),
     Cmp(Address, Reg),
     Ucomisd(Address, Reg),
     Add(Address, Reg),
@@ -183,6 +189,8 @@ impl fmt::Display for AsmInstruction {
             Movq(left, right) => f.write_fmt(format_args!("  movq {}, {}", left, right)),
             Movb(left, right) => f.write_fmt(format_args!("  movb {}, {}", left, right)),
             Movsd(left, right) => f.write_fmt(format_args!("  movsd {}, {}", left, right)),
+            Movsbl(left, right) => f.write_fmt(format_args!("  movsbl {}, {}", left, right)),
+            Movzbl(left, right) => f.write_fmt(format_args!("  movzbl {}, {}", left, right)),
             Movzb(left, right) => f.write_fmt(format_args!("  movzb {}, {}", left, right)),
             Cqo => f.write_fmt(format_args!("  cqo")),
             Add(left, right) => f.write_fmt(format_args!("  add {}, {}", left, right)),
@@ -259,6 +267,7 @@ impl Codegen {
 
     fn prologue(&mut self, size: usize) -> Vec<AsmInstruction> {
         vec![
+            // Str concat
             AsmInstruction::Label("str_concat".to_string()),
             AsmInstruction::Mov(
                 Address::Reg(Reg::Rax),
@@ -292,6 +301,90 @@ impl Codegen {
             AsmInstruction::Mov(Address::Reg(Reg::Rax), Address::Reg(Reg::Rdi)),
             AsmInstruction::Call("strcat".to_string()),
             AsmInstruction::Ret,
+            // StrEq
+            AsmInstruction::Label("str_eq".to_string()),
+            AsmInstruction::Mov(
+                Address::Reg(Reg::Rdi),
+                Address::IndirectOffset(-8, Reg::Rbp),
+            ),
+            AsmInstruction::Mov(
+                Address::Reg(Reg::Rsi),
+                Address::IndirectOffset(-16, Reg::Rbp),
+            ),
+            AsmInstruction::Label("str_eq.1".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rax),
+            ),
+            AsmInstruction::Movsbl(Address::Indirect(Reg::Rax), Address::Reg(Reg::Ecx)),
+            AsmInstruction::Xor(Address::Reg(Reg::Eax), Reg::Eax),
+            AsmInstruction::Cmp(Address::Immediate(0), Reg::Ecx),
+            AsmInstruction::Movb(
+                Address::Reg(Reg::Al),
+                Address::IndirectOffset(-17, Reg::Rbp),
+            ),
+            AsmInstruction::Je("str_eq.3".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rax),
+            ),
+            AsmInstruction::Movsbl(Address::Indirect(Reg::Rax), Address::Reg(Reg::Eax)),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-16, Reg::Rbp),
+                Address::Reg(Reg::Rcx),
+            ),
+            AsmInstruction::Movsbl(Address::Indirect(Reg::Rcx), Address::Reg(Reg::Ecx)),
+            AsmInstruction::Cmp(Address::Reg(Reg::Ecx), Reg::Eax),
+            AsmInstruction::Sete(Reg::Al),
+            AsmInstruction::Movb(
+                Address::Reg(Reg::Al),
+                Address::IndirectOffset(-17, Reg::Rbp),
+            ),
+            AsmInstruction::Label("str_eq.3".to_string()),
+            AsmInstruction::Movb(
+                Address::IndirectOffset(-17, Reg::Rbp),
+                Address::Reg(Reg::Al),
+            ),
+            AsmInstruction::Test(Address::Immediate(1), Address::Reg(Reg::Al)),
+            AsmInstruction::Jne("str_eq.4".to_string()),
+            AsmInstruction::Jmp("str_eq.5".to_string()),
+            AsmInstruction::Label("str_eq.4".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rax),
+            ),
+            AsmInstruction::Add(Address::Immediate(1), Reg::Rax),
+            AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::IndirectOffset(-8, Reg::Rbp),
+            ),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-16, Reg::Rbp),
+                Address::Reg(Reg::Rax),
+            ),
+            AsmInstruction::Add(Address::Immediate(1), Reg::Rax),
+            AsmInstruction::Mov(
+                Address::Reg(Reg::Rax),
+                Address::IndirectOffset(-16, Reg::Rbp),
+            ),
+            AsmInstruction::Jmp("str_eq.1".to_string()),
+            AsmInstruction::Label("str_eq.5".to_string()),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Rax),
+            ),
+            AsmInstruction::Movsbl(Address::Indirect(Reg::Rax), Address::Reg(Reg::Eax)),
+            AsmInstruction::Mov(
+                Address::IndirectOffset(-16, Reg::Rbp),
+                Address::Reg(Reg::Rcx),
+            ),
+            AsmInstruction::Movsbl(Address::Indirect(Reg::Rcx), Address::Reg(Reg::Ecx)),
+            AsmInstruction::Cmp(Address::Reg(Reg::Ecx), Reg::Eax),
+            AsmInstruction::Sete(Reg::Al),
+            AsmInstruction::And(Address::Immediate(1), Reg::Al),
+            AsmInstruction::Movzb(Address::Reg(Reg::Al), Address::Reg(Reg::Rax)),
+            AsmInstruction::Ret,
+            // Prologue
             AsmInstruction::Variable("globl".to_string(), Some("main".to_string())),
             AsmInstruction::Label("main".to_string()),
             AsmInstruction::Push(Reg::Rbp),
@@ -302,7 +395,7 @@ impl Codegen {
 
     fn epilogue(&mut self) -> Vec<AsmInstruction> {
         vec![
-            AsmInstruction::Xor(Reg::Rax, Reg::Rax),
+            AsmInstruction::Xor(Address::Reg(Reg::Rax), Reg::Rax),
             AsmInstruction::Leave,
             AsmInstruction::Ret,
             AsmInstruction::Variable("section".to_string(), Some(".rodata".to_string())),
@@ -360,7 +453,7 @@ impl Codegen {
                         Address::Reg(Reg::Rax),
                         Address::IndirectOffset(offset, Reg::Rbp),
                     ));
-                    res.push(AsmInstruction::Xor(Reg::Rax, Reg::Rax));
+                    res.push(AsmInstruction::Xor(Address::Reg(Reg::Rax), Reg::Rax));
                 }
 
                 res
@@ -589,7 +682,7 @@ impl Codegen {
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
                     match r_type {
-                        ObjType::Integer | ObjType::String => {
+                        ObjType::Integer => {
                             res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
                             res.push(AsmInstruction::Sete(Reg::Al));
                             res.push(AsmInstruction::Movzb(
@@ -604,6 +697,9 @@ impl Codegen {
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
                             ));
+                        }
+                        ObjType::String => {
+                            res.push(AsmInstruction::Call("str_eq".to_string()));
                         }
                         _ => error(
                             op.line,
@@ -618,7 +714,7 @@ impl Codegen {
                 } => {
                     let (mut res, r_type) = self.bin_op_fetch(left, right);
                     match r_type {
-                        ObjType::Integer | ObjType::String => {
+                        ObjType::Integer => {
                             res.push(AsmInstruction::Cmp(Address::Reg(Reg::Rdi), Reg::Rax));
                             res.push(AsmInstruction::Setne(Reg::Al));
                             res.push(AsmInstruction::Movzb(
@@ -633,6 +729,13 @@ impl Codegen {
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
                             ));
+                        }
+                        ObjType::String => {
+                            res.push(AsmInstruction::Call("str_eq".to_string()));
+                            res.push(AsmInstruction::Cmp(Address::Immediate(0), Reg::Rax));
+                            res.push(AsmInstruction::Setne(Reg::Al));
+                            res.push(AsmInstruction::Xor(Address::Immediate(-1), Reg::Al));
+                            res.push(AsmInstruction::And(Address::Immediate(1), Reg::Al));
                         }
                         _ => error(
                             op.line,
@@ -778,7 +881,7 @@ impl Codegen {
                             Address::Reg(Reg::Rax),
                             Address::IndirectOffset(*off, Reg::Rbp),
                         ));
-                        res.push(AsmInstruction::Xor(Reg::Rax, Reg::Rax));
+                        res.push(AsmInstruction::Xor(Address::Reg(Reg::Rax), Reg::Rax));
                     }
 
                     self.vars.insert(name.lexeme.clone(), (*off, r_type));

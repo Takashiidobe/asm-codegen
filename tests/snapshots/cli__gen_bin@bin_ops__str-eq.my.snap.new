@@ -1,0 +1,19 @@
+---
+source: tests/cli.rs
+assertion_line: 38
+info:
+  program: str-eq.my.out
+  args: []
+input_file: tests/input/bin_ops/str-eq.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+prints true
+false
+true
+prints false
+false
+true
+
+----- stderr -----

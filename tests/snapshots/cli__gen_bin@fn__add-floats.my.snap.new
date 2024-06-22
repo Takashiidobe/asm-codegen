@@ -1,0 +1,14 @@
+---
+source: tests/cli.rs
+assertion_line: 38
+info:
+  program: add-floats.my.out
+  args: []
+input_file: tests/input/fn/add-floats.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+1.100000
+
+----- stderr -----

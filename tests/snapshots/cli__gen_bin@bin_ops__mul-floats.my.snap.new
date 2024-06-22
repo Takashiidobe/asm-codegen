@@ -1,0 +1,15 @@
+---
+source: tests/cli.rs
+assertion_line: 38
+info:
+  program: mul-floats.my.out
+  args: []
+input_file: tests/input/bin_ops/mul-floats.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+2.200000
+2.200000
+
+----- stderr -----

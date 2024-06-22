@@ -1,0 +1,16 @@
+---
+source: tests/cli.rs
+assertion_line: 38
+info:
+  program: sub-floats.my.out
+  args: []
+input_file: tests/input/bin_ops/sub-floats.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+2.100000
+1.100000
+1.100000
+
+----- stderr -----

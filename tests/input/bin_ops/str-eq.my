@@ -1,7 +1,11 @@
-print "prints true";
+print "should print true";
+print "hi == hi";
 print "hi" == "hi"; // prints true
+print "hi != world";
 print "hi" != "world"; // prints true
 
-print "prints false";
+print "should print false";
+print "hi == world";
 print "hi" == "world"; // prints false
+print "hi != hi";
 print "hi" != "hi"; // prints false
