@@ -1,0 +1,30 @@
+---
+source: tests/cli.rs
+info:
+  program: int-relops.my.out
+  args: []
+input_file: tests/input/bin_ops/int-relops.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+should be all true
+true
+true
+true
+true
+true
+true
+true
+true
+should be all false
+false
+false
+false
+false
+false
+false
+false
+false
+
+----- stderr -----

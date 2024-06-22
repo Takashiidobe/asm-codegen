@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+cargo r -q -- $1 > ex.s && cc ex.s && ./a.out

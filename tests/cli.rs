@@ -22,7 +22,7 @@ fn gen_bin() {
             .stdout(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .unwrap();
+            .expect("Could not create assembly");
 
         let out_name = format!("{}.out", path.display());
 
@@ -33,7 +33,7 @@ fn gen_bin() {
             .arg("-")
             .stdin(Stdio::from(ps_child.stdout.unwrap()))
             .spawn()
-            .unwrap();
+            .expect("Could not assemble binary");
 
         assert_cmd_snapshot!(Command::new(&out_name));
     });

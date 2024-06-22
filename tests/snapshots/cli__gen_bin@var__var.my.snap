@@ -1,0 +1,15 @@
+---
+source: tests/cli.rs
+info:
+  program: var.my.out
+  args: []
+input_file: tests/input/var/var.my
+---
+success: true
+exit_code: 0
+----- stdout -----
+hi
+world
+30
+
+----- stderr -----

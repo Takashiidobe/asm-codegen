@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::borrow::Borrow as _;
 use std::{collections::HashMap, fmt};
 
@@ -93,8 +91,6 @@ impl fmt::Display for Reg {
     }
 }
 
-const ARG_REGS: [Reg; 6] = [Reg::Rdi, Reg::Rsi, Reg::Rdx, Reg::Rcx, Reg::R8, Reg::R9];
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum AsmInstruction {
     Section(String),
@@ -112,7 +108,9 @@ pub enum AsmInstruction {
     Movb(Address, Address),
     Movsd(Address, Address),
     Movzb(Address, Address),
+    Setae(Reg),
     Sete(Reg),
+    Setb(Reg),
     Setbe(Reg),
     Setne(Reg),
     Setl(Reg),
@@ -166,6 +164,7 @@ impl fmt::Display for AsmInstruction {
             Pop(reg) => f.write_fmt(format_args!("  pop {}", reg)),
             Sete(reg) => f.write_fmt(format_args!("  sete {}", reg)),
             Setne(reg) => f.write_fmt(format_args!("  setne {}", reg)),
+            Setb(reg) => f.write_fmt(format_args!("  setb {}", reg)),
             Setbe(reg) => f.write_fmt(format_args!("  setbe {}", reg)),
             Setl(reg) => f.write_fmt(format_args!("  setl {}", reg)),
             Setle(reg) => f.write_fmt(format_args!("  setle {}", reg)),
@@ -174,6 +173,7 @@ impl fmt::Display for AsmInstruction {
             Setp(reg) => f.write_fmt(format_args!("  setp {}", reg)),
             Setnp(reg) => f.write_fmt(format_args!("  setnp {}", reg)),
             Seta(reg) => f.write_fmt(format_args!("  seta {}", reg)),
+            Setae(reg) => f.write_fmt(format_args!("  setae {}", reg)),
             Ret => f.write_fmt(format_args!("  ret")),
             Call(fn_name) => f.write_fmt(format_args!("  call {}", fn_name)),
             Test(left, right) => f.write_fmt(format_args!("  test {}, {}", left, right)),
@@ -456,7 +456,7 @@ impl Codegen {
                 res.push(AsmInstruction::Ret);
                 res
             }
-            Stmt::Return { keyword, value } => {
+            Stmt::Return { value, .. } => {
                 let mut instructions = vec![];
 
                 instructions.extend(if let Some(val) = value {
@@ -600,7 +600,6 @@ impl Codegen {
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
                             res.push(AsmInstruction::Sete(Reg::Al));
-                            res.push(AsmInstruction::Setnp(Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -630,9 +629,6 @@ impl Codegen {
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
                             res.push(AsmInstruction::Setne(Reg::Al));
-                            res.push(AsmInstruction::Setp(Reg::Al));
-                            res.push(AsmInstruction::Or(Address::Reg(Reg::Al), Reg::Al));
-                            res.push(AsmInstruction::And(Address::Immediate(1), Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -661,8 +657,7 @@ impl Codegen {
                         }
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
-                            res.push(AsmInstruction::Seta(Reg::Al));
-                            res.push(AsmInstruction::And(Address::Immediate(1), Reg::Al));
+                            res.push(AsmInstruction::Setb(Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -691,7 +686,7 @@ impl Codegen {
                         }
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
-                            res.push(AsmInstruction::Setle(Reg::Al));
+                            res.push(AsmInstruction::Setbe(Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -720,7 +715,7 @@ impl Codegen {
                         }
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
-                            res.push(AsmInstruction::Setg(Reg::Al));
+                            res.push(AsmInstruction::Seta(Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -749,7 +744,7 @@ impl Codegen {
                         }
                         ObjType::Float => {
                             res.push(AsmInstruction::Ucomisd(Address::Reg(Reg::Xmm0), Reg::Xmm1));
-                            res.push(AsmInstruction::Setge(Reg::Al));
+                            res.push(AsmInstruction::Setae(Reg::Al));
                             res.push(AsmInstruction::Movzb(
                                 Address::Reg(Reg::Al),
                                 Address::Reg(Reg::Rax),
@@ -813,7 +808,7 @@ impl Codegen {
                     panic!("Var {name} was not defined");
                 }
             }
-            Expr::Logical { left, op, right } => todo!(),
+            Expr::Logical { .. } => todo!(),
             Expr::Unary { op, expr } => {
                 if let Token {
                     r#type: TokenType::Minus,
@@ -906,13 +901,11 @@ impl Codegen {
             },
             Expr::Grouping { expr } => self.expr(expr),
             Expr::Call {
-                callee,
-                paren,
-                arguments,
+                callee, arguments, ..
             } => {
                 let mut res = vec![];
                 for (i, arg) in arguments.iter().enumerate() {
-                    let (mut evaled_arg, r_type) = self.expr(arg);
+                    let (evaled_arg, r_type) = self.expr(arg);
                     res.extend(evaled_arg);
                     match r_type {
                         ObjType::String | ObjType::Bool | ObjType::Nil | ObjType::Integer => {
@@ -962,7 +955,6 @@ impl Codegen {
 
     fn bin_op_fetch(&mut self, left: &Expr, right: &Expr) -> (Vec<AsmInstruction>, ObjType) {
         let ((left, l_type), (mut res, r_type)) = (self.expr(left), self.expr(right));
-        let res_copy = res.clone();
         if l_type != r_type {
             panic!(
                 "The operands to a binary op must be the same type, got {:?}, {:?}",
@@ -978,11 +970,19 @@ impl Codegen {
                 Address::Reg(Reg::Xmm0),
                 Address::IndirectOffset(-8, Reg::Rbp),
             ));
+            res.extend(left);
             res.push(AsmInstruction::Movsd(
                 Address::Reg(Reg::Xmm0),
+                Address::IndirectOffset(-16, Reg::Rbp),
+            ));
+            res.push(AsmInstruction::Movsd(
+                Address::IndirectOffset(-8, Reg::Rbp),
+                Address::Reg(Reg::Xmm0),
+            ));
+            res.push(AsmInstruction::Movsd(
+                Address::IndirectOffset(-16, Reg::Rbp),
                 Address::Reg(Reg::Xmm1),
             ));
-            res.extend(left);
         }
         (res, l_type)
     }
